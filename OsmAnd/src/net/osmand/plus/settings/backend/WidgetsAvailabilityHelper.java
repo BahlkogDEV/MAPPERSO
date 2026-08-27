@@ -16,9 +16,12 @@ import static net.osmand.plus.views.mapwidgets.WidgetType.ALTITUDE_MAP_CENTER;
 import static net.osmand.plus.views.mapwidgets.WidgetType.ALTITUDE_MY_LOCATION;
 import static net.osmand.plus.views.mapwidgets.WidgetType.AVERAGE_SPEED;
 import static net.osmand.plus.views.mapwidgets.WidgetType.BATTERY;
+import static net.osmand.plus.views.mapwidgets.WidgetType.COORDINATES_CURRENT_LOCATION;
+import static net.osmand.plus.views.mapwidgets.WidgetType.COORDINATES_MAP_CENTER;
 import static net.osmand.plus.views.mapwidgets.WidgetType.CURRENT_SPEED;
 import static net.osmand.plus.views.mapwidgets.WidgetType.CURRENT_TIME;
 import static net.osmand.plus.views.mapwidgets.WidgetType.DISTANCE_TO_DESTINATION;
+import static net.osmand.plus.views.mapwidgets.WidgetType.ELEVATION_PROFILE;
 import static net.osmand.plus.views.mapwidgets.WidgetType.GLIDE_AVERAGE;
 import static net.osmand.plus.views.mapwidgets.WidgetType.GLIDE_TARGET;
 import static net.osmand.plus.views.mapwidgets.WidgetType.GPS_INFO;
@@ -93,6 +96,8 @@ public class WidgetsAvailabilityHelper {
 		boolean enableWidgetsV2 = Version.getInstallTime(app) >= ROUTE_WIDGETS_V2_INTRO_TIME_MS;
 		if (enableWidgetsV2) {
 			regWidgetVisibility(ROUTE_INFO, exceptDefault);
+		} else {
+			regWidgetVisibility(ROUTE_INFO, CAR);
 		}
 
 		regWidgetVisibility(NEXT_TURN, nextTurnSet);
@@ -146,6 +151,33 @@ public class WidgetsAvailabilityHelper {
 		regWidgetAvailability(TRUE_BEARING, all);
 		regWidgetAvailability(RADIUS_RULER, all);
 		regWidgetAvailability(CURRENT_TIME, all);
+
+		hideWidgetsByDefault(CAR,
+				MARKERS_TOP_BAR,
+				COORDINATES_MAP_CENTER,
+				COORDINATES_CURRENT_LOCATION,
+				ALTITUDE_MAP_CENTER,
+				ALTITUDE_MY_LOCATION,
+				BATTERY,
+				CURRENT_TIME,
+				AVERAGE_SPEED,
+				MAX_SPEED,
+				ELEVATION_PROFILE,
+				RADIUS_RULER,
+				INTERMEDIATE_DESTINATION,
+				DISTANCE_TO_DESTINATION,
+				TIME_TO_INTERMEDIATE,
+				TIME_TO_DESTINATION);
+	}
+
+	private static void hideWidgetsByDefault(@NonNull ApplicationMode appMode,
+	                                         @NonNull WidgetType... widgetTypes) {
+		for (WidgetType widgetType : widgetTypes) {
+			Set<ApplicationMode> visibleModes = widgetsVisibilityMap.get(widgetType.id);
+			if (visibleModes != null) {
+				visibleModes.remove(appMode);
+			}
+		}
 	}
 
 	@NonNull

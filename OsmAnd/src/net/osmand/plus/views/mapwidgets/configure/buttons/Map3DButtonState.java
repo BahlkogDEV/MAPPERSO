@@ -30,6 +30,7 @@ public class Map3DButtonState extends MapButtonState {
 	public Map3DButtonState(@NonNull OsmandApplication app) {
 		super(app, MAP_3D_HUD_ID);
 		this.visibilityPref = addPreference(settings.registerEnumStringPreference("map_3d_mode_visibility", VISIBLE, Map3DModeVisibility.values(), Map3DModeVisibility.class)).makeProfile().cache();
+		this.visibilityPref.setModeDefaultValue(ApplicationMode.CAR, HIDDEN);
 	}
 
 	@NonNull

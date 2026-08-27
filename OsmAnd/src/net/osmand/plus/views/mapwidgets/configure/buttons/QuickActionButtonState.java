@@ -19,6 +19,7 @@ import net.osmand.plus.R;
 import net.osmand.plus.quickaction.ButtonAppearanceParams;
 import net.osmand.plus.quickaction.QuickAction;
 import net.osmand.plus.quickaction.actions.ChangeMapOrientationAction;
+import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.backend.preferences.CommonPreference;
 import net.osmand.plus.views.controls.maphudbuttons.CompassDrawable;
 import net.osmand.plus.views.layers.MapQuickActionLayer;
@@ -47,6 +48,7 @@ public class QuickActionButtonState extends MapButtonState {
 	public QuickActionButtonState(@NonNull OsmandApplication app, @NonNull String id) {
 		super(app, id);
 		this.visibilityPref = addPreference(settings.registerBooleanPreference(id + "_state", false)).makeProfile();
+		this.visibilityPref.setModeDefaultValue(ApplicationMode.CAR, false);
 		this.namePref = addPreference(settings.registerStringPreference(id + "_name", null)).makeGlobal().storeLastModifiedTime();
 		this.quickActionsPref = addPreference(settings.registerStringPreference(id + "_list", null)).makeGlobal().storeLastModifiedTime();
 		this.quickActionLayer = app.getOsmandMap().getMapLayers().getMapQuickActionLayer();

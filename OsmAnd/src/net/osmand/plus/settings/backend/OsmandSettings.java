@@ -962,6 +962,11 @@ public class OsmandSettings {
 
 	public final OsmandPreference<Boolean> SHOW_DISTANCE_RULER = new BooleanPreference(this, "show_distance_ruler", false).makeProfile();
 
+	{
+		RADIUS_RULER_MODE.setModeDefaultValue(ApplicationMode.CAR, RadiusRulerMode.EMPTY);
+		((CommonPreference<Boolean>) SHOW_DISTANCE_RULER).setModeDefaultValue(ApplicationMode.CAR, false);
+	}
+
 	public final CommonPreference<SpeedLimitWarningState> SHOW_SPEED_LIMIT_WARNING = new EnumStringPreference<>(this, "show_speed_limit_warning", WHEN_EXCEEDED, SpeedLimitWarningState.values()).makeProfile();
 
 	public final CommonPreference<Boolean> SHOW_LINES_TO_FIRST_MARKERS = new BooleanPreference(this, "show_lines_to_first_markers", false).makeProfile();
@@ -2149,6 +2154,10 @@ public class OsmandSettings {
 	public final OsmandPreference<Integer> DISPLAYED_MARKERS_WIDGETS_COUNT = new IntPreference(this, "displayed_markers_widgets_count", 1).makeProfile();
 
 	public final OsmandPreference<Boolean> SHOW_MAP_MARKERS = new BooleanPreference(this, "show_map_markers", true).makeProfile();
+
+	{
+		((CommonPreference<Boolean>) SHOW_MAP_MARKERS).setModeDefaultValue(ApplicationMode.CAR, false);
+	}
 
 	public final CommonPreference<TracksSortMode> SEARCH_TRACKS_SORT_MODE = new EnumStringPreference<>(this, "search_tracks_sort_mode", TracksSortMode.getDefaultSortMode(null), TracksSortMode.values());
 	public final CommonPreference<FavoritesSortMode> FAVORITES_SORT_MODE = new EnumStringPreference<>(this, "favorites_sort_mode", FavoritesSortMode.getDefaultSortMode(), FavoritesSortMode.values());

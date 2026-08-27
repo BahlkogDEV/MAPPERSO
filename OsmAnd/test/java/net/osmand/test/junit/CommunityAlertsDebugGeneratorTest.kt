@@ -1,6 +1,8 @@
 package net.osmand.test.junit
 
 import net.osmand.Location
+import net.osmand.plus.plugins.communityalerts.CommunityAlertAnnouncementFormatter
+import net.osmand.plus.plugins.communityalerts.CommunityAlertAnnouncer
 import net.osmand.plus.plugins.communityalerts.CommunityAlertApproachController
 import net.osmand.plus.plugins.communityalerts.CommunityAlertMatch
 import net.osmand.plus.plugins.communityalerts.CommunityAlertMatcher
@@ -51,6 +53,31 @@ class CommunityAlertsDebugGeneratorTest {
 		assertTrue(diagnostic?.generated == true)
 		assertEquals(150.0, diagnostic?.placedBehindMeters ?: Double.NaN, 2.0)
 		assertNull(diagnostic?.omissionReason)
+	}
+
+	@Test
+	fun eligibleMatchCreatesOneEventAndInvokesAnnouncerOnce() {
+		val currentPosition = location(0.0, 0.005)
+		val matches = matcher.matchAll(
+			alerts = generator.createRouteDemoAlerts(
+				routeGeometry = route,
+				currentRouteIndex = 1,
+				currentPosition = currentPosition,
+				now = NOW
+			),
+			routeGeometry = route,
+			currentRouteIndex = 1,
+			currentPosition = currentPosition,
+			now = NOW
+		)
+		val approachEvents = CommunityAlertApproachController().evaluate(matches, NOW)
+		val voiceOutput = RecordingVoiceOutput()
+		val announcer = CommunityAlertAnnouncer(FORMATTER, voiceOutput)
+
+		approachEvents.forEach(announcer::announce)
+
+		assertEquals(1, approachEvents.size)
+		assertEquals(listOf("Danger signalé à 300 mètres"), voiceOutput.messages)
 	}
 
 	@Test
@@ -113,8 +140,30 @@ class CommunityAlertsDebugGeneratorTest {
 
 	private fun metersAsLongitude(meters: Double): Double = meters / METERS_PER_DEGREE
 
+	private class RecordingVoiceOutput : CommunityAlertAnnouncer.VoiceOutput {
+		val messages = mutableListOf<String>()
+
+		override val isRoutingProfileMuted: Boolean = false
+		override val isPlayerMuted: Boolean = false
+		override val isAvailable: Boolean = true
+
+		override fun announce(message: String): Boolean {
+			messages.add(message)
+			return true
+		}
+	}
+
 	companion object {
 		private const val NOW = 1_000_000L
 		private const val METERS_PER_DEGREE = 111_320.0
+		private val FORMATTER = CommunityAlertAnnouncementFormatter(
+			CommunityAlertAnnouncementFormatter.Templates(
+				police = "Contrôle signalé à %1\$d mètres",
+				accident = "Accident signalé à %1\$d mètres",
+				hazard = "Danger signalé à %1\$d mètres",
+				closure = "Route fermée signalée à %1\$d mètres",
+				traffic = "Ralentissement signalé à %1\$d mètres"
+			)
+		)
 	}
 }

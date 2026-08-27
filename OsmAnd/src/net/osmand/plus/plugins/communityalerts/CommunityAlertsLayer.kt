@@ -198,7 +198,7 @@ class CommunityAlertsLayer(
 	}
 
 	private fun getMarkerBitmap(match: CommunityAlertMatch): Bitmap? =
-		if (match.alert.id.startsWith(CommunityAlertsRepository.DEMO_ALERT_ID)) {
+		if (DebugCommunityAlertsProvider.isDebugAlert(match.alert)) {
 			demoMarkerBitmaps[match.status]
 		} else {
 			markerBitmap

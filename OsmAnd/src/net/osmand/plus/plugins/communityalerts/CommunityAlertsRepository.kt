@@ -2,42 +2,68 @@ package net.osmand.plus.plugins.communityalerts
 
 import java.util.concurrent.CopyOnWriteArraySet
 
-class CommunityAlertsRepository(
-	initialAlerts: List<CommunityAlert> = createFallbackDemoAlerts()
-) {
+class CommunityAlertsRepository {
 	fun interface Listener {
 		fun onAlertsChanged(alerts: List<CommunityAlert>)
 	}
 
 	private val listeners = CopyOnWriteArraySet<Listener>()
+	private val snapshotsBySource = linkedMapOf<String, LinkedHashMap<String, CommunityAlert>>()
 
 	@Volatile
-	private var alerts = initialAlerts.toList()
+	private var alerts = emptyList<CommunityAlert>()
 
 	fun getAlerts(): List<CommunityAlert> = alerts
+
+	fun getAlerts(sourceId: String): List<CommunityAlert> = synchronized(this) {
+		snapshotsBySource[sourceId]?.values?.toList().orEmpty()
+	}
 
 	fun getActiveAlerts(now: Long = System.currentTimeMillis()): List<CommunityAlert> =
 		alerts.filter { it.expiresAt > now }
 
-	fun replaceAlerts(newAlerts: List<CommunityAlert>) {
-		alerts = newAlerts.toList()
-		notifyListeners()
+	suspend fun refresh(
+		provider: CommunityAlertsProvider,
+		bounds: CommunityAlertBounds
+	): List<CommunityAlert> {
+		val normalizedAlerts = provider.fetchAlerts(bounds)
+		replaceSnapshot(provider.sourceId, normalizedAlerts)
+		return normalizedAlerts
 	}
 
-	fun clearAlerts() {
-		replaceAlerts(emptyList())
-	}
-
-	fun replaceWithFallbackDemoAlert() {
-		replaceAlerts(createFallbackDemoAlerts())
-	}
-
-	fun replaceWithDemoAlertNear(latitude: Double, longitude: Double) {
-		if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) {
-			return
+	fun replaceSnapshot(sourceId: String, newAlerts: List<CommunityAlert>) {
+		require(sourceId.isNotBlank()) { "Source id must not be blank" }
+		val updatedAlerts = synchronized(this) {
+			val snapshot = LinkedHashMap<String, CommunityAlert>()
+			newAlerts.forEach { alert -> snapshot[alert.id] = alert }
+			snapshotsBySource[sourceId] = snapshot
+			alerts = snapshotsBySource.values.flatMap { it.values }.toList()
+			alerts
 		}
-		val alertLatitude = (latitude + DEMO_LATITUDE_OFFSET).coerceIn(-90.0, 90.0)
-		replaceAlerts(createDemoAlerts(alertLatitude, longitude, GPS_DEMO_SOURCE))
+		notifyListeners(updatedAlerts)
+	}
+
+	fun removeSnapshot(sourceId: String) {
+		val updatedAlerts = synchronized(this) {
+			if (snapshotsBySource.remove(sourceId) == null) {
+				return@synchronized null
+			}
+			alerts = snapshotsBySource.values.flatMap { it.values }.toList()
+			alerts
+		} ?: return
+		notifyListeners(updatedAlerts)
+	}
+
+	fun clear() {
+		val hadAlerts = synchronized(this) {
+			val changed = snapshotsBySource.isNotEmpty() || alerts.isNotEmpty()
+			snapshotsBySource.clear()
+			alerts = emptyList()
+			changed
+		}
+		if (hadAlerts) {
+			notifyListeners(emptyList())
+		}
 	}
 
 	fun addListener(listener: Listener) {
@@ -48,42 +74,8 @@ class CommunityAlertsRepository(
 		listeners.remove(listener)
 	}
 
-	private fun notifyListeners() {
-		val activeAlerts = getActiveAlerts()
+	private fun notifyListeners(updatedAlerts: List<CommunityAlert>) {
+		val activeAlerts = updatedAlerts.filter { it.expiresAt > System.currentTimeMillis() }
 		listeners.forEach { it.onAlertsChanged(activeAlerts) }
-	}
-
-	companion object {
-		// Fallback location: central Paris. It is replaced by a nearby GPS alert when available.
-		private const val FALLBACK_LATITUDE = 48.8566
-		private const val FALLBACK_LONGITUDE = 2.3522
-		// 0.00135 degrees of latitude is approximately 150 metres.
-		private const val DEMO_LATITUDE_OFFSET = 0.00135
-		private const val DEMO_DURATION_MS = 6 * 60 * 60 * 1000L
-		private const val FALLBACK_DEMO_SOURCE = "local-demo-fixed-paris"
-		private const val GPS_DEMO_SOURCE = "local-demo-gps"
-		internal const val DEMO_ALERT_ID = "community-alert-demo"
-
-		private fun createFallbackDemoAlerts(): List<CommunityAlert> =
-			createDemoAlerts(FALLBACK_LATITUDE, FALLBACK_LONGITUDE, FALLBACK_DEMO_SOURCE)
-
-		private fun createDemoAlerts(
-			latitude: Double,
-			longitude: Double,
-			source: String
-		): List<CommunityAlert> {
-			val now = System.currentTimeMillis()
-			return listOf(
-				CommunityAlert(
-					id = DEMO_ALERT_ID,
-					type = CommunityAlert.Type.HAZARD,
-					latitude = latitude,
-					longitude = longitude,
-					timestamp = now,
-					expiresAt = now + DEMO_DURATION_MS,
-					source = source
-				)
-			)
-		}
 	}
 }

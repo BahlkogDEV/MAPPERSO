@@ -6,8 +6,8 @@ import net.osmand.shared.util.KMapUtils
 import net.osmand.util.MapUtils
 
 /**
- * Temporary debug/demo-only generator used to validate CommunityAlertMatcher visually.
- * Remove or gate this class when CommunityAlerts starts receiving real repository data.
+ * Debug/demo-only generator used to validate CommunityAlertMatcher visually.
+ * It is exposed only through DebugCommunityAlertsProvider and remains separate from external data.
  */
 class CommunityAlertsDebugGenerator(
 	private val matcher: CommunityAlertMatcher

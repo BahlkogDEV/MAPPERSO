@@ -2,6 +2,12 @@ package net.osmand.plus.plugins.communityalerts
 
 import android.app.Activity
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import net.osmand.Location
 import net.osmand.data.ValueHolder
 import net.osmand.plus.OsmAndLocationProvider.OsmAndLocationListener
@@ -17,26 +23,27 @@ class CommunityAlertsPlugin(app: OsmandApplication) : OsmandPlugin(app) {
 	private val matcher = CommunityAlertMatcher()
 	private val approachController = CommunityAlertApproachController()
 	private val announcer = CommunityAlertAnnouncer.create(app)
-	// TEMPORARY DEBUG/DEMO MODE: replace with real repository data in a later phase.
 	private val debugGenerator = CommunityAlertsDebugGenerator(matcher)
+	private val debugProvider = DebugCommunityAlertsProvider(debugGenerator)
+	private val debugRefreshPolicy = CommunityAlertsRefreshPolicy()
+	private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+	private var debugRefreshJob: Job? = null
 	private var alertsLayer: CommunityAlertsLayer? = null
-	private var demoAlertUsesGps = false
-	private var showingRouteDemoAlerts = false
 	private var listenersRegistered = false
 	private val locationListener = OsmAndLocationListener { location ->
 		refreshDebugDemoAlerts(location)
 	}
 	private val routeListener = object : IRouteInformationListener {
 		override fun newRouteIsCalculated(newRoute: Boolean, showToast: ValueHolder<Boolean>) {
-			refreshDebugDemoAlerts()
+			refreshDebugDemoAlerts(force = true)
 		}
 
 		override fun routeWasCancelled() {
-			refreshDebugDemoAlerts()
+			refreshDebugDemoAlerts(force = true)
 		}
 
 		override fun routeWasFinished() {
-			refreshDebugDemoAlerts()
+			refreshDebugDemoAlerts(force = true)
 		}
 	}
 
@@ -53,12 +60,14 @@ class CommunityAlertsPlugin(app: OsmandApplication) : OsmandPlugin(app) {
 
 	override fun init(app: OsmandApplication, activity: Activity?): Boolean {
 		registerListeners()
-		refreshDebugDemoAlerts(app.locationProvider.lastKnownLocation)
+		refreshDebugDemoAlerts(app.locationProvider.lastKnownLocation, force = true)
 		return true
 	}
 
 	override fun disable(app: OsmandApplication) {
 		unregisterListeners()
+		debugRefreshJob?.cancel()
+		debugRefreshPolicy.reset()
 		super.disable(app)
 	}
 
@@ -94,20 +103,7 @@ class CommunityAlertsPlugin(app: OsmandApplication) : OsmandPlugin(app) {
 		mapView.refreshMap()
 	}
 
-	override fun updateLocation(location: Location?) {
-		if (!showingRouteDemoAlerts) {
-			location?.let(::updateDemoAlertLocation)
-		}
-	}
-
-	private fun updateDemoAlertLocation(location: Location) {
-		if (!demoAlertUsesGps && isValidLocation(location)) {
-			demoAlertUsesGps = true
-			repository.replaceWithDemoAlertNear(location.latitude, location.longitude)
-		}
-	}
-
-	private fun refreshDebugDemoAlerts(location: Location? = null) {
+	private fun refreshDebugDemoAlerts(location: Location? = null, force: Boolean = false) {
 		val routingHelper = app.routingHelper
 		val route = routingHelper.route
 		val routeGeometry = if (routingHelper.isRouteCalculated && !route.isEmpty) {
@@ -118,31 +114,46 @@ class CommunityAlertsPlugin(app: OsmandApplication) : OsmandPlugin(app) {
 		val currentPosition = routingHelper.lastProjection
 			?: location
 			?: app.locationProvider.lastKnownLocation
+		val bounds = createRequestedBounds(currentPosition)
+		val now = System.currentTimeMillis()
+		if (debugRefreshJob?.isActive == true ||
+			!debugRefreshPolicy.shouldRefresh(bounds, now, force)) {
+			return
+		}
 		if (routeGeometry != null) {
-			val debugAlerts = debugGenerator.createRouteDemoAlerts(
+			val hasRouteAlerts = debugProvider.prepareRouteAlerts(
 				routeGeometry = routeGeometry,
 				currentRouteIndex = route.currentRoute,
-				currentPosition = currentPosition
+				currentPosition = currentPosition,
+				now = now
 			)
-			if (debugAlerts.isNotEmpty()) {
-				showingRouteDemoAlerts = true
-				repository.replaceAlerts(debugAlerts)
-				return
+			if (!hasRouteAlerts) {
+				prepareLocationOrFallback(currentPosition, now)
 			}
+		} else {
+			prepareLocationOrFallback(currentPosition, now)
 		}
 
-		if (showingRouteDemoAlerts) {
-			showingRouteDemoAlerts = false
-			if (currentPosition != null && isValidLocation(currentPosition)) {
-				demoAlertUsesGps = true
-				repository.replaceWithDemoAlertNear(currentPosition.latitude, currentPosition.longitude)
-			} else {
-				demoAlertUsesGps = false
-				repository.replaceWithFallbackDemoAlert()
-			}
-		} else if (currentPosition != null) {
-			updateDemoAlertLocation(currentPosition)
+		// Keep the non-suspending debug provider on the route/location callback thread, as in phase 5.
+		debugRefreshJob = refreshScope.launch(start = CoroutineStart.UNDISPATCHED) {
+			repository.refresh(debugProvider, bounds)
+			debugRefreshPolicy.recordSuccessfulRefresh(bounds, now)
 		}
+	}
+
+	private fun prepareLocationOrFallback(location: Location?, now: Long) {
+		if (location == null ||
+			!debugProvider.prepareAlertNear(location.latitude, location.longitude, now)) {
+			debugProvider.prepareFallbackAlert(now)
+		}
+	}
+
+	private fun createRequestedBounds(location: Location?): CommunityAlertBounds {
+		val latitude = location?.takeIf(::isValidLocation)?.latitude
+			?: DebugCommunityAlertsProvider.FALLBACK_LATITUDE
+		val longitude = location?.takeIf(::isValidLocation)?.longitude
+			?: DebugCommunityAlertsProvider.FALLBACK_LONGITUDE
+		return CommunityAlertBounds.around(latitude, longitude, ALERTS_LOAD_RADIUS_METERS)
 	}
 
 	private fun isValidLocation(location: Location): Boolean =
@@ -168,5 +179,6 @@ class CommunityAlertsPlugin(app: OsmandApplication) : OsmandPlugin(app) {
 	companion object {
 		const val PLUGIN_ID = "osmand.community.alerts"
 		private const val ALERTS_LAYER_Z_ORDER = 3.6f
+		private const val ALERTS_LOAD_RADIUS_METERS = 10_000.0
 	}
 }

@@ -84,6 +84,15 @@ public class JsCommandBuilder extends CommandBuilder{
 		return addCommand(C_ATTENTION, type);
 	}
 
+	/**
+	 * Adds text already formatted for a TTS-only announcement.
+	 */
+	public CommandBuilder ttsText(String text) {
+		super.addCommand("tts_text", text);
+		listStruct.add(text);
+		return this;
+	}
+
 	@Override
 	public CommandBuilder offRoute(double dist) {
 		return addCommand(C_OFF_ROUTE, dist);

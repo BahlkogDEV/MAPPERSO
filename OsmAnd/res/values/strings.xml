@@ -11,6 +11,25 @@
 	Strings for OsmAnd core
 	Thx - Hardy
 -->
+	<string name="community_alert_voice_police">Contrôle signalé à %1$d mètres</string>
+	<string name="community_alert_voice_accident">Accident signalé à %1$d mètres</string>
+	<string name="community_alert_voice_hazard">Danger signalé à %1$d mètres</string>
+	<string name="community_alert_voice_closure">Route fermée signalée à %1$d mètres</string>
+	<string name="community_alert_voice_traffic">Ralentissement signalé à %1$d mètres</string>
+	<string name="community_alert_debug_voice_announced">VOICE ANNOUNCED:</string>
+	<string name="community_alert_debug_triggered">COMMUNITY ALERT TRIGGERED</string>
+	<string name="community_alert_debug_trigger_id">ID: %1$s</string>
+	<string name="community_alert_debug_trigger_distance">DISTANCE: %1$s m</string>
+	<string name="community_alert_debug_trigger_count">TRIGGER COUNT: %1$d</string>
+	<string name="community_alert_debug_route_progress">ROUTE PROGRESS: %1$s m</string>
+	<string name="community_alert_debug_behind_available">BEHIND AVAILABLE: %1$s m</string>
+	<string name="community_alert_debug_behind_generated">BEHIND: GENERATED</string>
+	<string name="community_alert_debug_behind_omitted">BEHIND: OMITTED</string>
+	<string name="community_alert_debug_behind_reason">REASON: %1$s</string>
+	<string name="community_alert_demo_test">TEST</string>
+	<string name="community_alert_demo_on_route">TEST ON</string>
+	<string name="community_alert_demo_off_route">TEST OFF</string>
+	<string name="community_alert_demo_behind">TEST BEHIND</string>
 	<string name="community_alerts_plugin_name">Community alerts</string>
 	<string name="community_alerts_plugin_description">Displays locally available community reports on the map.</string>
 	<string name="share_favorites_media_preparation_failed">Couldn\'t include attached media. Sharing points only.</string>

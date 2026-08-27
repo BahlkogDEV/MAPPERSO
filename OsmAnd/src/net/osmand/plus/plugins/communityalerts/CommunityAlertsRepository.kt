@@ -28,6 +28,10 @@ class CommunityAlertsRepository(
 		replaceAlerts(emptyList())
 	}
 
+	fun replaceWithFallbackDemoAlert() {
+		replaceAlerts(createFallbackDemoAlerts())
+	}
+
 	fun replaceWithDemoAlertNear(latitude: Double, longitude: Double) {
 		if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) {
 			return
